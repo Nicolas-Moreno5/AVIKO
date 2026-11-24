@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Panel Agente - AVIKO</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; }
+        body { display: flex; height: 100vh; background: #1e1e2e; color: white; }
+        
+        /* Barra lateral de conversaciones */
+        .sidebar { width: 300px; background: #181825; border-right: 1px solid #313244; display: flex; flex-direction: column; }
+        .sidebar-header { padding: 20px; background: #2e7d32; font-weight: bold; font-size: 1.1rem; }
+        .lista-clientes { flex: 1; overflow-y: auto; }
+        .cliente-item { padding: 15px 20px; border-bottom: 1px solid #313244; cursor: pointer; transition: background 0.2s; }
+        .cliente-item:hover { background: #313244; }
+        .cliente-item.activo { background: #45475a; border-left: 4px solid #ff6d00; }
+        .cliente-nombre { font-weight: bold; font-size: 1rem; }
+        .cliente-tel { font-size: 0.8rem; color: #a6adc8; margin-top: 4px; }
+
+        /* Área principal de chat */
+        .chat-area { flex: 1; display: flex; flex-direction: column; }
+        .chat-header { padding: 20px; background: #181825; border-bottom: 1px solid #313244; font-weight: bold; }
+        .mensajes { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+        .msg { max-width: 70%; padding: 10px 15px; border-radius: 10px; font-size: 0.95rem; line-height: 1.4; }
+        .msg.cliente { background: #313244; align-self: flex-start; border-left: 4px solid #89b4fa; }
+        .msg.bot { background: #1e3a2f; align-self: flex-end; border-right: 4px solid #a6e3a1; }
+        .msg.admin { background: #ff6d00; align-self: flex-end; color: white; }
+        .msg small { display: block; font-size: 0.75rem; opacity: 0.8; margin-bottom: 4px; }
+
+        .input-area { padding: 15px; background: #181825; display: flex; gap: 10px; border-top: 1px solid #313244; }
+        .input-area input { flex: 1; padding: 12px; border-radius: 8px; border: none; background: #313244; color: white; outline: none; }
+        .input-area button { padding: 12px 25px; background: #ff6d00; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        .input-area button:disabled { background: #585b70; cursor: not-allowed; }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <div class="sidebar-header">🐜 Chats Activos (AVIKO)</div>
+        <div class="lista-clientes" id="lista-clientes">
+            <p style="padding: 20px; color: #a6adc8; font-size: 0.9rem;">Esperando clientes...</p>
+        </div>
+    </div>
+
+    <div class="chat-area">
+        <div class="chat-header" id="chat-header">Selecciona una conversación a la izquierda</div>
+        <div class="mensajes" id="mensajes"></div>
+        <form class="input-area" id="form-admin">
+            <input type="text" id="input-msg" placeholder="Escribe una respuesta como asesor humano..." disabled autocomplete="off">
+            <button type="submit" id="btn-enviar" disabled>Enviar</button>
+        </form>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        let sesiones = {};
+        let clienteSeleccionadoId = null;
+
+        const listaClientesEl = document.getElementById('lista-clientes');
+        const chatHeaderEl = document.getElementById('chat-header');
+        const mensajesEl = document.getElementById('mensajes');
+        const inputMsg = document.getElementById('input-msg');
+        const btnEnviar = document.getElementById('btn-enviar');
+        const formAdmin = document.getElementById('form-admin');
+
+        // Avisar al servidor que somos el admin
+        socket.emit('admin_conectado');
+
+        socket.on('lista_sesiones', (data) => {
+            sesiones = data;
+            renderizarLista();
+            if (clienteSeleccionadoId && !sesiones[clienteSeleccionadoId]) {
+                clienteSeleccionadoId = null;
+                chatHeaderEl.textContent = 'El cliente se desconectó. Selecciona otro chat.';
+                inputMsg.disabled = true;
+                btnEnviar.disabled = true;
+            }
+        });
+
+        socket.on('actualizar_chat', ({ userId, sesion }) => {
+            sesiones[userId] = sesion;
+            renderizarLista();
+            if (clienteSeleccionadoId === userId) {
+                renderizarMensajes();
+            }
+        });
+
+        function renderizarLista() {
+            const ids = Object.keys(sesiones);
+            if (ids.length === 0) {
+                listaClientesEl.innerHTML = '<p style="padding: 20px; color: #a6adc8; font-size: 0.9rem;">No hay clientes conectados.</p>';
+                return;
+            }
+            listaClientesEl.innerHTML = '';
+            ids.forEach(id => {
+                const s = sesiones[id];
+                const div = document.createElement('div');
+                div.className = `cliente-item ${id === clienteSeleccionadoId ? 'activo' : ''}`;
+                div.innerHTML = `<div class="cliente-nombre">👤 ${s.nombre}</div><div class="cliente-tel">📞 ${s.telefono}</div>`;
+                div.onclick = () => seleccionarCliente(id);
+                listaClientesEl.appendChild(div);
+            });
+        }
+
+        function seleccionarCliente(id) {
+            clienteSeleccionadoId = id;
+            const s = sesiones[id];
+            chatHeaderEl.textContent = `Conversación con ${s.nombre} (${s.telefono})`;
+            inputMsg.disabled = false;
+            btnEnviar.disabled = false;
+            renderizarLista();
+            renderizarMensajes();
+        }
+
+        function renderizarMensajes() {
+            const s = sesiones[clienteSeleccionadoId];
+            if (!s) return;
+            mensajesEl.innerHTML = '';
+            s.mensajes.forEach(m => {
+                const div = document.createElement('div');
+                div.className = `msg ${m.remitente}`;
+                const etiqueta = m.remitente === 'cliente' ? s.nombre : (m.remitente === 'bot' ? '🤖 AVIKO (IA)' : '👨‍💻 Tú (Asesor)');
+                div.innerHTML = `<small>${etiqueta}</small>${m.texto}`;
+                mensajesEl.appendChild(div);
+            });
+            mensajesEl.scrollTop = mensajesEl.scrollHeight;
+        }
+
+        formAdmin.addEventListener('submit', (e) => {
+            e.preventDefault();
+            if (clienteSeleccionadoId && inputMsg.value.trim()) {
+                socket.emit('admin_responde', { userId: clienteSeleccionadoId, texto: inputMsg.value.trim() });
+                inputMsg.value = '';
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AVIKO - Fumigaciones K.O.</title>
+    <style>
+        * { box-sizing: border-box; }
+        :root { --primary: #2e7d32; --accent: #ff6d00; --bg-chat: #f5f5dc; }
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh;
+            background: linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.6)), url('https://www.transparenttextures.com/patterns/cubes.png') #4caf50;
+        }
+        .container { 
+            width: 100%; max-width: 420px; background: white; border-radius: 20px; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3); overflow: hidden; height: 88vh; display: flex; flex-direction: column;
+            position: relative;
+        }
+        .header { background: var(--primary); color: white; padding: 18px; text-align: center; border-bottom: 4px solid var(--accent); }
+        .header h2 { margin: 0; font-size: 1.5rem; display: flex; align-items: center; justify-content: center; gap: 10px; }
+        
+        /* Pantalla de Registro */
+        #register-screen { padding: 20px 25px; display: flex; flex-direction: column; gap: 10px; flex: 1; overflow-y: auto; justify-content: center; }
+        .input-group input { width: 100%; padding: 10px 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 0.95rem; }
+        .input-group input:focus { border-color: var(--accent); outline: none; }
+        .checkbox-group { display: flex; align-items: flex-start; gap: 8px; margin: 4px 0; text-align: left; font-size: 0.8rem; color: #333; line-height: 1.3; }
+        .checkbox-group input { margin-top: 3px; width: auto; cursor: pointer; }
+        .btn-start { background: var(--accent); color: white; border: none; padding: 13px; font-size: 1.05rem; border-radius: 8px; cursor: pointer; font-weight: bold; transition: transform 0.2s; }
+        .btn-start:hover { transform: scale(1.03); }
+
+        /* Pantalla de Chat */
+        #chat-screen { display: none; flex-direction: column; flex: 1; overflow: hidden; }
+        .chat-messages { flex: 1; padding: 20px; overflow-y: auto; background-color: var(--bg-chat); display: flex; flex-direction: column; gap: 12px; }
+        
+        @keyframes popIn { 0% { opacity: 0; transform: translateY(20px) scale(0.9); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
+        .message { max-width: 80%; padding: 12px 16px; border-radius: 15px; font-size: 0.95rem; white-space: pre-wrap; animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .message.bot { background: white; align-self: flex-start; border-bottom-left-radius: 2px; border-left: 4px solid var(--primary); }
+        .message.user { background: #dcf8c6; align-self: flex-end; border-bottom-right-radius: 2px; border-right: 4px solid var(--accent); }
+        
+        .chat-input { display: flex; padding: 15px; background: white; border-top: 1px solid #ddd; }
+        .chat-input input { flex: 1; padding: 12px; border: 1px solid #ccc; border-radius: 25px; outline: none; }
+        .chat-input button { background: var(--primary); color: white; border: none; padding: 0 20px; margin-left: 10px; border-radius: 25px; cursor: pointer; font-weight: bold; }
+        .typing { font-size: 0.8rem; color: #666; font-style: italic; display: none; padding: 0 20px 10px; background: var(--bg-chat); margin: 0; }
+        .btn-perfil { position: absolute; right: 15px; top: 18px; background: rgba(255,255,255,0.2); color: white; border: 1px solid white; border-radius: 15px; padding: 5px 10px; font-size: 0.78rem; cursor: pointer; display: none; }
+        .btn-perfil:hover { background: var(--accent); border-color: var(--accent); }
+        .modal-overlay { display: none; position: absolute; inset: 0; background: rgba(0,0,0,0.65); z-index: 100; justify-content: center; align-items: center; padding: 15px; }
+        .modal-content { background: white; width: 100%; max-height: 90%; border-radius: 15px; padding: 18px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 8px; }
+        .modal-header h3 { margin: 0; color: var(--primary); font-size: 1.05rem; }
+        .btn-cerrar { background: none; border: none; font-size: 1.2rem; cursor: pointer; color: #666; }
+        .visita-card { background: #f9f9f9; border-left: 4px solid var(--accent); padding: 10px; border-radius: 6px; font-size: 0.82rem; margin-bottom: 8px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h2>🐜 AVIKO</h2>
+        <span style="font-size: 0.85rem;">Fumigaciones K.O.</span>
+    <button class="btn-perfil" id="btn-abrir-perfil">👤 Mi Perfil</button>
+    </div>
+
+    <!-- Formulario de Registro -->
+    <div id="register-screen">
+        <h3 style="text-align: center; color: #333; margin: 0 0 8px 0;">Ingresa tus datos para comenzar</h3>
+        <form id="register-form" style="display: flex; flex-direction: column; gap: 10px;">
+            <div class="input-group"><input type="text" id="reg-nombre" placeholder="Nombre" required></div>
+            <div class="input-group"><input type="text" id="reg-apellido" placeholder="Apellido" required></div>
+            <div class="input-group"><input type="tel" id="reg-telefono" placeholder="Número de Teléfono" required></div>
+            <div class="input-group"><input type="text" id="reg-ubicacion" placeholder="Localidad (Bogotá) o Municipio" required></div>
+            <div class="input-group"><input type="text" id="reg-direccion" placeholder="Dirección exacta" required></div>
+            
+            <div class="checkbox-group">
+                <input type="checkbox" id="autorizacion-datos" required>
+                <label for="autorizacion-datos" style="cursor: pointer;">
+                    Autorizo a <strong>Fumigaciones K.O.</strong> el tratamiento de mis datos personales conforme a la Ley 1581 de 2012 (Habeas Data) para la gestión de solicitudes, cotizaciones y visitas técnicas.
+                </label>
+            </div>
+
+            <button type="submit" class="btn-start">Iniciar Chat 🚀</button>
+        </form>
+    </div>
+
+    <!-- Interfaz de Chat -->
+    <div id="chat-screen">
+        <div class="chat-messages" id="messages"></div>
+        <div class="typing" id="typing-indicator">AVIKO está analizando... 🔍</div>
+        <form class="chat-input" id="chat-form">
+            <input type="text" id="msg-input" placeholder="Escribe tu mensaje..." required autocomplete="off">
+            <button type="submit">Enviar</button>
+        </form>
+    </div>
+    
+    <div class="modal-overlay" id="modal-perfil">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>👤 Mis Datos e Historial</h3>
+                <button class="btn-cerrar" id="btn-cerrar-perfil">✖</button>
+            </div>
+
+            <form id="form-editar-perfil" style="display: flex; flex-direction: column; gap: 8px;">
+                <input type="text" id="edit-nombre" placeholder="Nombre completo" required style="padding: 8px; border: 1px solid #ccc; border-radius: 6px;">
+                <input type="text" id="edit-ubicacion" placeholder="Localidad o Municipio" required style="padding: 8px; border: 1px solid #ccc; border-radius: 6px;">
+                <input type="text" id="edit-direccion" placeholder="Dirección exacta" required style="padding: 8px; border: 1px solid #ccc; border-radius: 6px;">
+                <select id="edit-inmueble" style="padding: 8px; border: 1px solid #ccc; border-radius: 6px;">
+                    <option value="Hogar">Hogar</option>
+                    <option value="Restaurante">Restaurante</option>
+                    <option value="Empresa">Empresa</option>
+                    <option value="Pendiente">Otro / Pendiente</option>
+                </select>
+                <button type="submit" style="background: var(--primary); color: white; border: none; padding: 9px; border-radius: 6px; cursor: pointer; font-weight: bold;">Guardar Cambios 💾</button>
+            </form>
+
+            <h4 style="margin: 10px 0 4px 0; color: #333; font-size: 0.95rem;">📋 Historial de Visitas y Servicios</h4>
+            <div id="lista-historial" style="font-size: 0.85rem; color: #555;">Cargando historial...</div>
+        </div>
+    </div>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+    const socket = io();
+
+    const registerScreen = document.getElementById('register-screen');
+    const chatScreen = document.getElementById('chat-screen');
+    const registerForm = document.getElementById('register-form');
+    const chatForm = document.getElementById('chat-form');
+    const input = document.getElementById('msg-input');
+    const messages = document.getElementById('messages');
+    const typingIndicator = document.getElementById('typing-indicator');
+
+    // 1. Validar checkbox y enviar datos de registro
+    registerForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+
+        const autorizo = document.getElementById('autorizacion-datos').checked;
+        if (!autorizo) {
+            alert('Debes autorizar el tratamiento de datos personales para continuar.');
+            return;
+        }
+
+        const datos = {
+            nombre: document.getElementById('reg-nombre').value.trim(),
+            apellido: document.getElementById('reg-apellido').value.trim(),
+            telefono: document.getElementById('reg-telefono').value.trim(),
+            ubicacion: document.getElementById('reg-ubicacion').value.trim(),
+            direccion: document.getElementById('reg-direccion').value.trim()
+        };
+        socket.emit('registrar_usuario', datos);
+    });
+
+    // 2. Transición al chat tras el registro
+    socket.on('registro_exitoso', (nombreUsuario) => {
+        registerScreen.style.display = 'none';
+        chatScreen.style.display = 'flex';
+        addMessage(`¡Hola ${nombreUsuario}! Soy AVIKO 🐜. ¿Tienes algún problema de plagas que pueda ayudarte a resolver hoy?`, 'bot');
+    });
+
+    // 3. Enviar mensaje del chat
+    chatForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        if (input.value.trim()) {
+            addMessage(input.value.trim(), 'user');
+            socket.emit('chat message', input.value.trim());
+            input.value = '';
+            typingIndicator.style.display = 'block';
+        }
+    });
+
+    // 4. Recibir respuesta de la IA
+    socket.on('bot message', (msg) => {
+        typingIndicator.style.display = 'none';
+        addMessage(msg, 'bot');
+    });
+
+    function addMessage(text, sender) {
+        const item = document.createElement('div');
+        item.textContent = text;
+        item.classList.add('message', sender);
+        messages.appendChild(item);
+        messages.scrollTop = messages.scrollHeight;
+    }
+    const btnAbrirPerfil = document.getElementById('btn-abrir-perfil');
+    const modalPerfil = document.getElementById('modal-perfil');
+    const btnCerrarPerfil = document.getElementById('btn-cerrar-perfil');
+    const formEditarPerfil = document.getElementById('form-editar-perfil');
+    const listaHistorial = document.getElementById('lista-historial');
+
+    // Mostrar el botón "Mi Perfil" apenas entre al chat
+    socket.on('registro_exitoso', () => {
+        btnAbrirPerfil.style.display = 'block';
+    });
+
+    btnAbrirPerfil.addEventListener('click', () => {
+        modalPerfil.style.display = 'flex';
+        socket.emit('obtener_perfil_historial');
+    });
+
+    btnCerrarPerfil.addEventListener('click', () => {
+        modalPerfil.style.display = 'none';
+    });
+
+    socket.on('datos_perfil_historial', ({ perfil, visitas }) => {
+        if (perfil) {
+            document.getElementById('edit-nombre').value = perfil.nombre || '';
+            document.getElementById('edit-ubicacion').value = perfil.ubicacion || '';
+            document.getElementById('edit-direccion').value = perfil.direccion || '';
+            document.getElementById('edit-inmueble').value = perfil.tipo_inmueble || 'Pendiente';
+        }
+
+        if (!visitas || visitas.length === 0) {
+            listaHistorial.innerHTML = '<p>Aún no tienes visitas técnicas ni servicios registrados.</p>';
+        } else {
+            listaHistorial.innerHTML = visitas.map(v => `
+                <div class="visita-card">
+                    <strong>Visita #${v.id} — ${v.estado}</strong><br>
+                    🐜 <b>Plaga:</b> ${v.tipo_plaga}<br>
+                    👷 <b>Técnico:</b> ${v.tecnico_asignado}<br>
+                    📅 <b>Fecha:</b> ${v.fecha_hora_programada}<br>
+                    📍 <b>Dirección:</b> ${v.direccion}
+                </div>
+            `).join('');
+        }
+    });
+
+    formEditarPerfil.addEventListener('submit', (e) => {
+        e.preventDefault();
+        socket.emit('actualizar_perfil_cliente', {
+            nombre: document.getElementById('edit-nombre').value.trim(),
+            ubicacion: document.getElementById('edit-ubicacion').value.trim(),
+            direccion: document.getElementById('edit-direccion').value.trim(),
+            tipo_inmueble: document.getElementById('edit-inmueble').value
+        });
+    });
+
+    socket.on('perfil_actualizado', (mensaje) => {
+        alert(mensaje);
+        modalPerfil.style.display = 'none';
+    });
+</script>
+</body>
+</html>
